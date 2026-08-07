@@ -3,20 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { getProfile } from "@/lib/firestore/profile";
+import { useAppData } from "@/context/AppDataContext";
 import { listFoodLogsForDate, listFoodLogsForRange } from "@/lib/firestore/foodLogs";
 import { getWeightLog, listWeightLogs } from "@/lib/firestore/weightLogs";
+import { getWaterLog } from "@/lib/firestore/waterLogs";
 import { addDays, sumNutrients, todayId } from "@/lib/nutrition";
 import MacroSummary from "@/components/MacroSummary";
-import type { Profile, WeightLog } from "@/types";
+import NutrientAdvice from "@/components/NutrientAdvice";
+import type { WeightLog } from "@/types";
 
 const DEFAULT_MACRO_GOALS = { proteinG: 150, fatG: 65, carbG: 200 };
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { profile, foods, loading: dataLoading } = useAppData();
   const [todayTotals, setTodayTotals] = useState(sumNutrients([]));
   const [todayWeight, setTodayWeight] = useState<WeightLog | null>(null);
+  const [todayWaterMl, setTodayWaterMl] = useState(0);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -24,14 +27,14 @@ export default function DashboardPage() {
     if (!user) return;
     const today = todayId();
     (async () => {
-      const [p, logs, w] = await Promise.all([
-        getProfile(user.uid),
+      const [logs, w, water] = await Promise.all([
         listFoodLogsForDate(user.uid, today),
         getWeightLog(user.uid, today),
+        getWaterLog(user.uid, today),
       ]);
-      setProfile(p);
       setTodayTotals(sumNutrients(logs.map((l) => l.nutrients)));
       setTodayWeight(w);
+      setTodayWaterMl(water?.ml ?? 0);
 
       // Compute a simple logging streak over the last 30 days.
       const start = addDays(today, -30);
@@ -54,7 +57,7 @@ export default function DashboardPage() {
     })();
   }, [user]);
 
-  if (loading) return <p className="text-sm text-gray-500">Loading...</p>;
+  if (loading || dataLoading) return <p className="text-sm text-gray-500">Loading...</p>;
 
   if (!profile) {
     return (
@@ -80,7 +83,7 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500">{todayId()}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <StatCard
           label="Calories remaining"
           value={`${remaining}`}
@@ -91,10 +94,24 @@ export default function DashboardPage() {
           value={todayWeight ? `${todayWeight.weightKg} kg` : "—"}
           sub={todayWeight ? "Logged" : "Not logged yet"}
         />
+        <StatCard
+          label="Water"
+          value={`${(todayWaterMl / 1000).toFixed(2)} L`}
+          sub="Log it in Diary"
+        />
         <StatCard label="Logging streak" value={`${streak} day${streak !== 1 ? "s" : ""}`} sub="Keep it going" />
       </div>
 
       <MacroSummary totals={todayTotals} calorieGoal={calorieGoal} macroGoals={profile.macroGoals ?? DEFAULT_MACRO_GOALS} />
+
+      {todayTotals.calories > 0 && (
+        <NutrientAdvice
+          totals={todayTotals}
+          calorieGoal={calorieGoal}
+          macroGoals={profile.macroGoals ?? DEFAULT_MACRO_GOALS}
+          foods={foods}
+        />
+      )}
 
       <div className="flex gap-3">
         <Link

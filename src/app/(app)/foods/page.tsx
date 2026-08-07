@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useAppData } from "@/context/AppDataContext";
 import NumberInput from "@/components/NumberInput";
-import { addFood, deleteFood, listFoods } from "@/lib/firestore/foods";
+import { addFood, deleteFood } from "@/lib/firestore/foods";
 import { SEED_FOODS } from "@/lib/seedFoods";
-import type { Food, Nutrients } from "@/types";
+import type { Nutrients } from "@/types";
 
 interface SearchResult {
   fdcId: number;
@@ -29,27 +30,20 @@ const EMPTY_CUSTOM = {
 
 export default function FoodsPage() {
   const { user } = useAuth();
-  const [savedFoods, setSavedFoods] = useState<Food[]>([]);
+  const { foods: savedFoods, refreshFoods } = useAppData();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [customFood, setCustomFood] = useState(EMPTY_CUSTOM);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [importing, setImporting] = useState(false);
-
-  async function refreshSavedFoods() {
-    if (!user) return;
-    setSavedFoods(await listFoods(user.uid));
-  }
-
-  useEffect(() => {
-    refreshSavedFoods();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const [savingCustom, setSavingCustom] = useState(false);
+  const [savingResultId, setSavingResultId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || searching) return;
     setSearching(true);
     try {
       const res = await fetch(`/api/food-search?query=${encodeURIComponent(query)}`);
@@ -61,47 +55,62 @@ export default function FoodsPage() {
   }
 
   async function handleSaveResult(result: SearchResult) {
-    if (!user) return;
-    await addFood(user.uid, {
-      name: result.brandName ? `${result.name} (${result.brandName})` : result.name,
-      source: "usda",
-      fdcId: result.fdcId,
-      servingSize: result.servingSize,
-      servingUnit: result.servingUnit,
-      nutrients: result.nutrients,
-    });
-    await refreshSavedFoods();
+    if (!user || savingResultId !== null) return;
+    setSavingResultId(result.fdcId);
+    try {
+      await addFood(user.uid, {
+        name: result.brandName ? `${result.name} (${result.brandName})` : result.name,
+        source: "usda",
+        fdcId: result.fdcId,
+        servingSize: result.servingSize,
+        servingUnit: result.servingUnit,
+        nutrients: result.nutrients,
+      });
+      await refreshFoods();
+    } finally {
+      setSavingResultId(null);
+    }
   }
 
   async function handleSaveCustom(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !customFood.name.trim()) return;
-    await addFood(user.uid, {
-      name: customFood.name,
-      source: "custom",
-      servingSize: customFood.servingSize,
-      servingUnit: customFood.servingUnit,
-      nutrients: {
-        calories: customFood.calories,
-        protein: customFood.protein,
-        fat: customFood.fat,
-        carbs: customFood.carbs,
-      },
-      ...(customFood.costInr > 0 ? { costInr: customFood.costInr } : {}),
-    });
-    setCustomFood(EMPTY_CUSTOM);
-    setShowCustomForm(false);
-    await refreshSavedFoods();
+    if (!user || !customFood.name.trim() || savingCustom) return;
+    setSavingCustom(true);
+    try {
+      await addFood(user.uid, {
+        name: customFood.name,
+        source: "custom",
+        servingSize: customFood.servingSize,
+        servingUnit: customFood.servingUnit,
+        nutrients: {
+          calories: customFood.calories,
+          protein: customFood.protein,
+          fat: customFood.fat,
+          carbs: customFood.carbs,
+        },
+        ...(customFood.costInr > 0 ? { costInr: customFood.costInr } : {}),
+      });
+      setCustomFood(EMPTY_CUSTOM);
+      setShowCustomForm(false);
+      await refreshFoods();
+    } finally {
+      setSavingCustom(false);
+    }
   }
 
   async function handleDelete(foodId: string) {
-    if (!user) return;
-    await deleteFood(user.uid, foodId);
-    await refreshSavedFoods();
+    if (!user || deletingId) return;
+    setDeletingId(foodId);
+    try {
+      await deleteFood(user.uid, foodId);
+      await refreshFoods();
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleImportSeedFoods() {
-    if (!user) return;
+    if (!user || importing) return;
     setImporting(true);
     try {
       const existingNames = new Set(savedFoods.map((f) => f.name));
@@ -109,7 +118,7 @@ export default function FoodsPage() {
       for (const food of toAdd) {
         await addFood(user.uid, food);
       }
-      await refreshSavedFoods();
+      await refreshFoods();
     } finally {
       setImporting(false);
     }
@@ -153,9 +162,10 @@ export default function FoodsPage() {
                 </div>
                 <button
                   onClick={() => handleSaveResult(r)}
-                  className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
+                  disabled={savingResultId !== null}
+                  className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Save to library
+                  {savingResultId === r.fdcId ? "Saving..." : "Save to library"}
                 </button>
               </li>
             ))}
@@ -239,9 +249,10 @@ export default function FoodsPage() {
             />
             <button
               type="submit"
-              className="col-span-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 sm:col-span-4"
+              disabled={savingCustom}
+              className="col-span-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 sm:col-span-4"
             >
-              Save food
+              {savingCustom ? "Saving..." : "Save food"}
             </button>
           </form>
         )}
@@ -264,9 +275,10 @@ export default function FoodsPage() {
                 </div>
                 <button
                   onClick={() => handleDelete(f.id)}
-                  className="shrink-0 text-xs font-medium text-red-500 hover:text-red-700"
+                  disabled={deletingId !== null}
+                  className="shrink-0 text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
                 >
-                  Delete
+                  {deletingId === f.id ? "Deleting..." : "Delete"}
                 </button>
               </li>
             ))}

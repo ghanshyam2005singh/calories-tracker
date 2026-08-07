@@ -1,6 +1,11 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,5 +19,16 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Persistent local cache means repeat reads (e.g. navigating back to a page
+// you've already visited) come from disk instantly instead of a fresh
+// network round-trip. Guarded to the browser since IndexedDB doesn't exist
+// during Next.js's server-side render pass.
+export const db =
+  typeof window !== "undefined"
+    ? initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+      })
+    : getFirestore(app);
+
 export default app;

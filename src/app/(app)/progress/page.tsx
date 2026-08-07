@@ -14,11 +14,11 @@ import {
   Legend,
 } from "recharts";
 import { useAuth } from "@/context/AuthContext";
-import { getProfile } from "@/lib/firestore/profile";
+import { useAppData } from "@/context/AppDataContext";
 import { listFoodLogsForRange } from "@/lib/firestore/foodLogs";
 import { listWeightLogs } from "@/lib/firestore/weightLogs";
 import { addDays, sumNutrients, todayId } from "@/lib/nutrition";
-import type { FoodLog, Profile, WeightLog } from "@/types";
+import type { FoodLog, WeightLog } from "@/types";
 
 const RANGES = [
   { label: "2 weeks", days: 14 },
@@ -28,27 +28,26 @@ const RANGES = [
 
 export default function ProgressPage() {
   const { user } = useAuth();
+  const { profile, loading: profileLoading } = useAppData();
   const [rangeDays, setRangeDays] = useState(30);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [weights, setWeights] = useState<WeightLog[]>([]);
   const [logs, setLogs] = useState<FoodLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rangeLoading, setRangeLoading] = useState(true);
+  const loading = rangeLoading || profileLoading;
 
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
+    setRangeLoading(true);
     const end = todayId();
     const start = addDays(end, -rangeDays);
     (async () => {
-      const [p, w, l] = await Promise.all([
-        getProfile(user.uid),
+      const [w, l] = await Promise.all([
         listWeightLogs(user.uid, start, end),
         listFoodLogsForRange(user.uid, start, end),
       ]);
-      setProfile(p);
       setWeights(w);
       setLogs(l);
-      setLoading(false);
+      setRangeLoading(false);
     })();
   }, [user, rangeDays]);
 

@@ -40,6 +40,12 @@ export interface WeightLog {
   createdAt?: string;
 }
 
+export interface WaterLog {
+  id: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
+  ml: number;
+}
+
 // Nutrient values are all per the food's defined serving (Food) or
 // already scaled to the logged quantity (FoodLog).
 export interface Nutrients {

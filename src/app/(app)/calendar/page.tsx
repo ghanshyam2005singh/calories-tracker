@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { getProfile } from "@/lib/firestore/profile";
+import { useAppData } from "@/context/AppDataContext";
 import { listFoodLogsForRange } from "@/lib/firestore/foodLogs";
 import { listWeightLogs } from "@/lib/firestore/weightLogs";
 import { sumNutrients, todayId } from "@/lib/nutrition";
-import type { FoodLog, Profile, WeightLog } from "@/types";
+import type { FoodLog, WeightLog } from "@/types";
 
 function monthRange(year: number, month: number) {
   const start = new Date(year, month, 1);
@@ -18,12 +18,12 @@ function monthRange(year: number, month: number) {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const { profile, loading: profileLoading } = useAppData();
   const router = useRouter();
   const [cursor, setCursor] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [logs, setLogs] = useState<FoodLog[]>([]);
   const [weights, setWeights] = useState<WeightLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,12 +34,10 @@ export default function CalendarPage() {
     if (!user) return;
     setLoading(true);
     (async () => {
-      const [p, l, w] = await Promise.all([
-        getProfile(user.uid),
+      const [l, w] = await Promise.all([
         listFoodLogsForRange(user.uid, startId, endId),
         listWeightLogs(user.uid, startId, endId),
       ]);
-      setProfile(p);
       setLogs(l);
       setWeights(w);
       setLoading(false);
@@ -73,15 +71,21 @@ export default function CalendarPage() {
 
   const calorieGoal = profile?.dailyCalorieGoal ?? 2000;
 
-  function statusColor(dateId: string) {
+  function caloriePct(dateId: string): number | null {
     const dayLogs = logsByDate.get(dateId);
-    if (!dayLogs || dayLogs.length === 0) return "bg-gray-50";
+    if (!dayLogs || dayLogs.length === 0) return null;
     const totals = sumNutrients(dayLogs.map((l) => l.nutrients));
-    const diff = totals.calories - calorieGoal;
-    if (Math.abs(diff) <= calorieGoal * 0.05) return "bg-emerald-100";
-    if (diff > 0) return "bg-red-100";
-    return "bg-blue-100";
+    return Math.round((totals.calories / calorieGoal) * 100);
   }
+
+  function statusClasses(pct: number | null) {
+    if (pct === null) return { bg: "bg-gray-50", text: "text-gray-400" };
+    if (Math.abs(pct - 100) <= 5) return { bg: "bg-emerald-100", text: "text-emerald-700" };
+    if (pct > 100) return { bg: "bg-red-100", text: "text-red-700" };
+    return { bg: "bg-blue-100", text: "text-blue-700" };
+  }
+
+  const isLoading = loading || profileLoading;
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -110,7 +114,7 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <p className="text-sm text-gray-500">Loading...</p>
       ) : (
         <>
@@ -120,26 +124,23 @@ export default function CalendarPage() {
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
-            {cells.map((dateId, i) =>
-              dateId ? (
+            {cells.map((dateId, i) => {
+              if (!dateId) return <div key={`empty-${i}`} />;
+              const pct = caloriePct(dateId);
+              const { bg, text } = statusClasses(pct);
+              const weight = weightByDate.get(dateId);
+              return (
                 <button
                   key={dateId}
                   onClick={() => router.push(`/diary?date=${dateId}`)}
-                  className={`flex h-16 flex-col items-center justify-center rounded-md border border-gray-200 text-xs hover:opacity-80 ${statusColor(
-                    dateId
-                  )}`}
+                  className={`flex h-16 flex-col items-center justify-center rounded-md border border-gray-200 text-xs hover:opacity-80 ${bg}`}
                 >
                   <span className="font-medium">{Number(dateId.split("-")[2])}</span>
-                  {weightByDate.get(dateId) && (
-                    <span className="text-[10px] text-gray-500">
-                      {weightByDate.get(dateId)!.weightKg}kg
-                    </span>
-                  )}
+                  {pct !== null && <span className={`text-[10px] font-semibold ${text}`}>{pct}%</span>}
+                  {weight && <span className="text-[10px] text-gray-500">{weight.weightKg}kg</span>}
                 </button>
-              ) : (
-                <div key={`empty-${i}`} />
-              )
-            )}
+              );
+            })}
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-gray-500">
             <Legend color="bg-emerald-100" label="Within 5% of goal" />

@@ -27,6 +27,7 @@ export const SEED_FOODS: Omit<Food, "id" | "createdAt">[] = [
   // Dairy
   { name: "Milk, full cream (200ml)", source: "custom", servingSize: 200, servingUnit: "ml", nutrients: { calories: 120, protein: 6.5, fat: 6.5, carbs: 9.5 }, costInr: 20 },
   { name: "Curd (100g)", source: "custom", servingSize: 100, servingUnit: "g", nutrients: { calories: 60, protein: 3.5, fat: 4, carbs: 3 }, costInr: 10 },
+  { name: "Whey protein (1 scoop)", source: "custom", servingSize: 100, servingUnit: "g", nutrients: { calories: 100, protein: 25, fat: 1, carbs: 3 }, costInr: 80 },
 
   // Fruits & fats
   { name: "Banana, medium (1)", source: "custom", servingSize: 1, servingUnit: "banana", nutrients: { calories: 100, protein: 1.3, fat: 0.3, carbs: 26 }, costInr: 6 },

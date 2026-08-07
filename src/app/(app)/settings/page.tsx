@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useAppData } from "@/context/AppDataContext";
 import NumberInput from "@/components/NumberInput";
-import { getProfile, saveProfile } from "@/lib/firestore/profile";
+import { saveProfile } from "@/lib/firestore/profile";
 import { getLatestWeightLog } from "@/lib/firestore/weightLogs";
 import {
   ACTIVITY_LABELS,
@@ -29,24 +30,25 @@ const DEFAULT_PROFILE: Profile = {
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { profile: cachedProfile, loading: dataLoading, refreshProfile } = useAppData();
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
   const [currentWeight, setCurrentWeight] = useState<number>(70);
-  const [loading, setLoading] = useState(true);
+  const [weightLoading, setWeightLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [autoGoals, setAutoGoals] = useState(true);
+  const loading = dataLoading || weightLoading;
+
+  useEffect(() => {
+    if (cachedProfile) setProfile(cachedProfile);
+  }, [cachedProfile]);
 
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const [p, w] = await Promise.all([
-        getProfile(user.uid),
-        getLatestWeightLog(user.uid),
-      ]);
-      if (p) setProfile(p);
+    getLatestWeightLog(user.uid).then((w) => {
       if (w) setCurrentWeight(w.weightKg);
-      setLoading(false);
-    })();
+      setWeightLoading(false);
+    });
   }, [user]);
 
   const age = profile.dob ? calculateAge(profile.dob) : null;
@@ -72,10 +74,11 @@ export default function SettingsPage() {
   }, [autoGoals, suggestedCalories, suggestedMacros?.proteinG, suggestedMacros?.fatG, suggestedMacros?.carbG]);
 
   async function handleSave() {
-    if (!user) return;
+    if (!user || saving) return;
     setSaving(true);
     setSaved(false);
     await saveProfile(user.uid, profile);
+    await refreshProfile();
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
