@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import NumberInput from "@/components/NumberInput";
 import { getProfile } from "@/lib/firestore/profile";
 import { listFoods } from "@/lib/firestore/foods";
 import { addFoodLog, deleteFoodLog, listFoodLogsForDate } from "@/lib/firestore/foodLogs";
@@ -30,7 +31,7 @@ function DiaryContent() {
   const [foods, setFoods] = useState<Food[]>([]);
   const [logs, setLogs] = useState<FoodLog[]>([]);
   const [weightLog, setWeightLog] = useState<WeightLog | null>(null);
-  const [weightInput, setWeightInput] = useState("");
+  const [weightInput, setWeightInput] = useState(0);
   const [loading, setLoading] = useState(true);
 
   function goToDate(newDate: string) {
@@ -51,7 +52,7 @@ function DiaryContent() {
       setFoods(f);
       setLogs(l);
       setWeightLog(w);
-      setWeightInput(w ? String(w.weightKg) : "");
+      setWeightInput(w ? w.weightKg : 0);
       setLoading(false);
     })();
   }, [user, date]);
@@ -69,11 +70,12 @@ function DiaryContent() {
 
   async function handleSaveWeight() {
     if (!user || !weightInput) return;
-    await upsertWeightLog(user.uid, { date, weightKg: Number(weightInput) });
+    await upsertWeightLog(user.uid, { date, weightKg: weightInput });
     setWeightLog(await getWeightLog(user.uid, date));
   }
 
   const totals = sumNutrients(logs.map((l) => l.nutrients));
+  const totalCost = logs.reduce((sum, l) => sum + (l.costInr ?? 0), 0);
   const calorieGoal = profile?.dailyCalorieGoal ?? 2000;
   const macroGoals = profile?.macroGoals ?? DEFAULT_MACRO_GOALS;
 
@@ -81,24 +83,24 @@ function DiaryContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={() => goToDate(addDays(date, -1))}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
         >
           ← Prev
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center justify-center gap-2 sm:flex-none">
           <input
             type="date"
-            className="input"
+            className="input w-auto min-w-0"
             value={date}
             onChange={(e) => goToDate(e.target.value)}
           />
           {date !== todayId() && (
             <button
               onClick={() => goToDate(todayId())}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50"
+              className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50"
             >
               Today
             </button>
@@ -114,16 +116,21 @@ function DiaryContent() {
 
       <MacroSummary totals={totals} calorieGoal={calorieGoal} macroGoals={macroGoals} />
 
+      {totalCost > 0 && (
+        <p className="text-sm text-gray-600">
+          Today&apos;s food cost: <span className="font-semibold">₹{Math.round(totalCost)}</span>
+        </p>
+      )}
+
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-gray-700">Weight for this day</h2>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
+        <div className="flex flex-wrap items-center gap-2">
+          <NumberInput
             step="0.1"
             className="input max-w-[140px]"
             placeholder="kg"
             value={weightInput}
-            onChange={(e) => setWeightInput(e.target.value)}
+            onChange={setWeightInput}
           />
           <button
             onClick={handleSaveWeight}
@@ -195,6 +202,7 @@ function MealSection({
       quantity,
       unit: `x ${food.servingSize}${food.servingUnit}`,
       nutrients,
+      ...(food.costInr != null ? { costInr: food.costInr * quantity } : {}),
     });
     setSelectedFoodId("");
     setQuantity(1);
@@ -218,6 +226,7 @@ function MealSection({
                   {l.quantity} serving{l.quantity !== 1 ? "s" : ""} · {Math.round(l.nutrients.calories)} kcal
                   · P{Math.round(l.nutrients.protein)}g · F{Math.round(l.nutrients.fat)}g · C
                   {Math.round(l.nutrients.carbs)}g
+                  {l.costInr != null && ` · ₹${Math.round(l.costInr)}`}
                 </p>
               </div>
               <button
@@ -231,9 +240,9 @@ function MealSection({
         </ul>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <select
-          className="input"
+          className="input min-w-0 flex-1 basis-full sm:basis-0"
           value={selectedFoodId}
           onChange={(e) => setSelectedFoodId(e.target.value)}
         >
@@ -244,18 +253,17 @@ function MealSection({
             </option>
           ))}
         </select>
-        <input
-          type="number"
+        <NumberInput
           step="0.25"
-          min="0"
-          className="input max-w-[90px]"
+          min={0}
+          className="input w-24 flex-none"
           value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
+          onChange={setQuantity}
         />
         <button
           onClick={handleAdd}
           disabled={!selectedFoodId}
-          className="shrink-0 rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="flex-none rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
           Add
         </button>

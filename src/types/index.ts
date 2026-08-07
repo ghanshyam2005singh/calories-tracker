@@ -61,6 +61,7 @@ export interface Food {
   servingSize: number;
   servingUnit: string;
   nutrients: Nutrients; // per one serving (servingSize servingUnit)
+  costInr?: number; // cost (INR) per one serving
   createdAt?: string;
 }
 
@@ -73,6 +74,7 @@ export interface FoodLog {
   quantity: number; // number of servings
   unit: string;
   nutrients: Nutrients; // already scaled by quantity
+  costInr?: number; // already scaled by quantity
   createdAt?: string;
 }
 

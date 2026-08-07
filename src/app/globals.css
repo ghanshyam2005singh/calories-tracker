@@ -23,10 +23,20 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @layer components {
   .input {
-    @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500;
+    @apply w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:border-gray-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500 sm:text-sm;
+    /* iOS Safari auto-zooms on focus for inputs under 16px - keep >=16px on mobile. */
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    .input {
+      font-size: 0.875rem;
+    }
   }
 }

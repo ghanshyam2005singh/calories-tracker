@@ -51,5 +51,13 @@ Open http://localhost:3000, sign in with the account you created in Firebase Aut
 2. Import it in Vercel, add the same environment variables from `.env.local` in the Vercel project settings.
 3. Deploy. Firebase Auth + Firestore work the same in production as they do locally.
 
+## Install on your iPhone as an app
+Once it's deployed (Vercel, so it's on HTTPS):
+1. Open the site in **Safari** on your iPhone (must be Safari, not Chrome).
+2. Tap the **Share** icon → **Add to Home Screen** → **Add**.
+3. Launch it from the home screen icon — it opens full-screen, no browser address bar, with its own app icon.
+
+This is a PWA install, not an App Store app: it needs an internet connection (no offline mode) and updates automatically whenever you redeploy.
+
 ## Data model
 All data lives under `users/{your-uid}/...` in Firestore: `profile` (on the user doc), `weightLogs/{date}`, `foods/{foodId}` (your personal library), `foodLogs/{logId}`. Firestore security rules restrict all reads/writes to your own authenticated UID.

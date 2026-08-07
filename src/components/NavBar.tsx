@@ -24,16 +24,19 @@ export default function NavBar() {
   }
 
   return (
-    <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <nav className="flex flex-wrap gap-1">
+    <header
+      className="sticky top-0 z-10 border-b border-gray-200 bg-white"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
+      <div className="mx-auto flex max-w-5xl items-center gap-2 px-2 py-2 sm:px-4 sm:py-3">
+        <nav className="flex flex-1 gap-1 overflow-x-auto [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
           {LINKS.map((link) => {
             const active = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm font-medium sm:px-3 ${
                   active
                     ? "bg-gray-900 text-white"
                     : "text-gray-600 hover:bg-gray-100"
@@ -46,7 +49,7 @@ export default function NavBar() {
         </nav>
         <button
           onClick={handleLogout}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100"
+          className="shrink-0 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 sm:px-3"
         >
           Sign out
         </button>

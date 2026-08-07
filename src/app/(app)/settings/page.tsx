@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import NumberInput from "@/components/NumberInput";
 import { getProfile, saveProfile } from "@/lib/firestore/profile";
 import { getLatestWeightLog } from "@/lib/firestore/weightLogs";
 import {
@@ -114,20 +115,18 @@ export default function SettingsPage() {
           </select>
         </Field>
         <Field label="Height (cm)">
-          <input
-            type="number"
+          <NumberInput
             className="input"
             value={profile.heightCm}
-            onChange={(e) => setProfile({ ...profile, heightCm: Number(e.target.value) })}
+            onChange={(v) => setProfile({ ...profile, heightCm: v })}
           />
         </Field>
         <Field label="Current weight (kg)">
-          <input
-            type="number"
+          <NumberInput
             step="0.1"
             className="input"
             value={currentWeight}
-            onChange={(e) => setCurrentWeight(Number(e.target.value))}
+            onChange={setCurrentWeight}
           />
           <p className="mt-1 text-xs text-gray-400">
             Log actual daily weights in the Diary — this is just used to estimate your goals.
@@ -165,12 +164,11 @@ export default function SettingsPage() {
         </Field>
         {profile.goalType !== "maintain" && (
           <Field label="Target rate (kg/week)">
-            <input
-              type="number"
+            <NumberInput
               step="0.1"
               className="input"
               value={profile.weeklyRateKg}
-              onChange={(e) => setProfile({ ...profile, weeklyRateKg: Number(e.target.value) })}
+              onChange={(v) => setProfile({ ...profile, weeklyRateKg: v })}
             />
           </Field>
         )}
@@ -199,55 +197,49 @@ export default function SettingsPage() {
         </label>
 
         <Field label="Daily calorie goal">
-          <input
-            type="number"
+          <NumberInput
             className="input"
             disabled={autoGoals}
             value={profile.dailyCalorieGoal}
-            onChange={(e) =>
-              setProfile({ ...profile, dailyCalorieGoal: Number(e.target.value) })
-            }
+            onChange={(v) => setProfile({ ...profile, dailyCalorieGoal: v })}
           />
         </Field>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Protein (g)">
-            <input
-              type="number"
+            <NumberInput
               className="input"
               disabled={autoGoals}
               value={profile.macroGoals.proteinG}
-              onChange={(e) =>
+              onChange={(v) =>
                 setProfile({
                   ...profile,
-                  macroGoals: { ...profile.macroGoals, proteinG: Number(e.target.value) },
+                  macroGoals: { ...profile.macroGoals, proteinG: v },
                 })
               }
             />
           </Field>
           <Field label="Fat (g)">
-            <input
-              type="number"
+            <NumberInput
               className="input"
               disabled={autoGoals}
               value={profile.macroGoals.fatG}
-              onChange={(e) =>
+              onChange={(v) =>
                 setProfile({
                   ...profile,
-                  macroGoals: { ...profile.macroGoals, fatG: Number(e.target.value) },
+                  macroGoals: { ...profile.macroGoals, fatG: v },
                 })
               }
             />
           </Field>
           <Field label="Carbs (g)">
-            <input
-              type="number"
+            <NumberInput
               className="input"
               disabled={autoGoals}
               value={profile.macroGoals.carbG}
-              onChange={(e) =>
+              onChange={(v) =>
                 setProfile({
                   ...profile,
-                  macroGoals: { ...profile.macroGoals, carbG: Number(e.target.value) },
+                  macroGoals: { ...profile.macroGoals, carbG: v },
                 })
               }
             />
