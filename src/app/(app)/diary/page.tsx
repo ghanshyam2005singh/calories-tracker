@@ -7,11 +7,13 @@ import { useAppData } from "@/context/AppDataContext";
 import NumberInput from "@/components/NumberInput";
 import { listFoodLogsForDate, addFoodLog, deleteFoodLog } from "@/lib/firestore/foodLogs";
 import { getWeightLog, upsertWeightLog } from "@/lib/firestore/weightLogs";
+import { getBodyMeasurementLog, upsertBodyMeasurementLog } from "@/lib/firestore/bodyMeasurements";
+import { getActivityLog, upsertActivityLog } from "@/lib/firestore/activityLogs";
 import { addWater, getWaterLog, resetWater } from "@/lib/firestore/waterLogs";
 import { addDays, scaleNutrients, sumNutrients, todayId } from "@/lib/nutrition";
 import MacroSummary from "@/components/MacroSummary";
 import NutrientAdvice from "@/components/NutrientAdvice";
-import type { Food, FoodLog, MealType, WeightLog } from "@/types";
+import type { ActivityLog, BodyMeasurementLog, Food, FoodLog, MealType, WeightLog } from "@/types";
 
 const MEALS: { type: MealType; label: string }[] = [
   { type: "breakfast", label: "Breakfast" },
@@ -23,6 +25,12 @@ const MEALS: { type: MealType; label: string }[] = [
 const DEFAULT_MACRO_GOALS = { proteinG: 150, fatG: 65, carbG: 200 };
 const WATER_QUICK_ADD = [500, 750, 1000];
 const WATER_GOAL_ML = 3000;
+const MEASUREMENT_FIELDS: { key: keyof Omit<BodyMeasurementLog, "id" | "date" | "note" | "createdAt">; label: string }[] = [
+  { key: "waistCm", label: "Waist" }, { key: "chestCm", label: "Chest" }, { key: "hipsCm", label: "Hips" },
+  { key: "neckCm", label: "Neck" }, { key: "leftBicepsCm", label: "Left biceps" }, { key: "rightBicepsCm", label: "Right biceps" },
+  { key: "leftThighCm", label: "Left thigh" }, { key: "rightThighCm", label: "Right thigh" },
+];
+const emptyMeasurements = () => Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, ""])) as Record<(typeof MEASUREMENT_FIELDS)[number]["key"], string>;
 
 function DiaryContent() {
   const { user } = useAuth();
@@ -35,6 +43,12 @@ function DiaryContent() {
   const [weightLog, setWeightLog] = useState<WeightLog | null>(null);
   const [weightInput, setWeightInput] = useState(0);
   const [savingWeight, setSavingWeight] = useState(false);
+  const [measurementValues, setMeasurementValues] = useState(emptyMeasurements);
+  const [measurementNote, setMeasurementNote] = useState("");
+  const [savingMeasurements, setSavingMeasurements] = useState(false);
+  const [activity, setActivity] = useState<ActivityLog | null>(null);
+  const [activityValues, setActivityValues] = useState({ steps: "", walkingMinutes: "", runningMinutes: "", runningSpeedKph: "", workoutName: "", workoutMinutes: "", bodyParts: "", caloriesBurned: "", note: "" });
+  const [savingActivity, setSavingActivity] = useState(false);
   const [waterMl, setWaterMl] = useState(0);
   const [addingWater, setAddingWater] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -47,15 +61,26 @@ function DiaryContent() {
     if (!user) return;
     setLoading(true);
     (async () => {
-      const [l, w, water] = await Promise.all([
+      const [l, w, water, measurements, activityLog] = await Promise.all([
         listFoodLogsForDate(user.uid, date),
         getWeightLog(user.uid, date),
         getWaterLog(user.uid, date),
+        getBodyMeasurementLog(user.uid, date),
+        getActivityLog(user.uid, date),
       ]);
       setLogs(l);
       setWeightLog(w);
       setWeightInput(w ? w.weightKg : 0);
       setWaterMl(water?.ml ?? 0);
+      setMeasurementValues(Object.fromEntries(MEASUREMENT_FIELDS.map(({ key }) => [key, measurements?.[key]?.toString() ?? ""])) as typeof measurementValues);
+      setMeasurementNote(measurements?.note ?? "");
+      setActivity(activityLog);
+      setActivityValues({
+        steps: activityLog?.steps?.toString() ?? "", walkingMinutes: activityLog?.walkingMinutes?.toString() ?? "",
+        runningMinutes: activityLog?.runningMinutes?.toString() ?? "", runningSpeedKph: activityLog?.runningSpeedKph?.toString() ?? "",
+        workoutName: activityLog?.workoutName ?? "", workoutMinutes: activityLog?.workoutMinutes?.toString() ?? "",
+        bodyParts: activityLog?.bodyParts?.join(", ") ?? "", caloriesBurned: activityLog?.caloriesBurned?.toString() ?? "", note: activityLog?.note ?? "",
+      });
       setLoading(false);
     })();
   }, [user, date]);
@@ -91,6 +116,37 @@ function DiaryContent() {
     } finally {
       setAddingWater(false);
     }
+  }
+
+  async function handleSaveMeasurements() {
+    if (!user || savingMeasurements) return;
+    setSavingMeasurements(true);
+    try {
+      const values = Object.fromEntries(MEASUREMENT_FIELDS.flatMap(({ key }) => {
+        const value = Number(measurementValues[key]);
+        return measurementValues[key] !== "" && Number.isFinite(value) && value > 0 ? [[key, value]] : [];
+      }));
+      await upsertBodyMeasurementLog(user.uid, { date, ...values, note: measurementNote.trim() || undefined });
+    } finally { setSavingMeasurements(false); }
+  }
+
+  async function handleSaveActivity() {
+    if (!user || savingActivity) return;
+    setSavingActivity(true);
+    try {
+      const numeric = (key: "steps" | "walkingMinutes" | "runningMinutes" | "runningSpeedKph" | "workoutMinutes" | "caloriesBurned") => {
+        const value = Number(activityValues[key]);
+        return activityValues[key] !== "" && Number.isFinite(value) && value >= 0 ? value : undefined;
+      };
+      const entry = {
+        date, steps: numeric("steps"), walkingMinutes: numeric("walkingMinutes"), runningMinutes: numeric("runningMinutes"),
+        runningSpeedKph: numeric("runningSpeedKph"), workoutMinutes: numeric("workoutMinutes"), caloriesBurned: numeric("caloriesBurned"),
+        workoutName: activityValues.workoutName.trim() || undefined,
+        bodyParts: activityValues.bodyParts.split(",").map((part) => part.trim()).filter(Boolean), note: activityValues.note.trim() || undefined,
+      };
+      await upsertActivityLog(user.uid, entry);
+      setActivity(await getActivityLog(user.uid, date));
+    } finally { setSavingActivity(false); }
   }
 
   async function handleResetWater() {
@@ -174,6 +230,40 @@ function DiaryContent() {
             {savingWeight ? "Saving..." : weightLog ? "Update" : "Save"}
           </button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-gray-700">Body measurements</h2>
+          <span className="text-xs text-gray-400">cm · weekly is usually enough</span>
+        </div>
+        <p className="mb-3 text-xs text-gray-500">Track the areas that matter to you, measured consistently at the same time of day.</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {MEASUREMENT_FIELDS.map(({ key, label }) => (
+            <label key={key} className="text-xs text-gray-500">{label}
+              <input type="number" min="0" step="0.1" placeholder="cm" className="input mt-1 w-full" value={measurementValues[key]} onChange={(e) => setMeasurementValues((prev) => ({ ...prev, [key]: e.target.value }))} />
+            </label>
+          ))}
+        </div>
+        <input className="input mt-2 w-full" placeholder="Optional measurement note" value={measurementNote} onChange={(e) => setMeasurementNote(e.target.value)} />
+        <button onClick={handleSaveMeasurements} disabled={savingMeasurements} className="mt-2 rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50">{savingMeasurements ? "Saving..." : "Save measurements"}</button>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <h2 className="mb-1 text-sm font-semibold text-gray-700">Activity &amp; training</h2>
+        <p className="mb-3 text-xs text-gray-500">Enter phone/watch steps manually for now. Calories burned are recorded separately and do not change your food goal.</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <ActivityInput label="Steps" value={activityValues.steps} onChange={(value) => setActivityValues((prev) => ({ ...prev, steps: value }))} />
+          <ActivityInput label="Walking min" value={activityValues.walkingMinutes} onChange={(value) => setActivityValues((prev) => ({ ...prev, walkingMinutes: value }))} />
+          <ActivityInput label="Running min" value={activityValues.runningMinutes} onChange={(value) => setActivityValues((prev) => ({ ...prev, runningMinutes: value }))} />
+          <ActivityInput label="Run speed (km/h)" step="0.1" value={activityValues.runningSpeedKph} onChange={(value) => setActivityValues((prev) => ({ ...prev, runningSpeedKph: value }))} />
+          <ActivityInput label="Workout min" value={activityValues.workoutMinutes} onChange={(value) => setActivityValues((prev) => ({ ...prev, workoutMinutes: value }))} />
+          <ActivityInput label="Calories burned" value={activityValues.caloriesBurned} onChange={(value) => setActivityValues((prev) => ({ ...prev, caloriesBurned: value }))} />
+          <label className="col-span-2 text-xs text-gray-500">Workout (e.g. Push day)<input className="input mt-1 w-full" value={activityValues.workoutName} onChange={(e) => setActivityValues((prev) => ({ ...prev, workoutName: e.target.value }))} /></label>
+          <label className="col-span-2 text-xs text-gray-500">Body parts (comma separated)<input className="input mt-1 w-full" placeholder="Chest, shoulders, triceps" value={activityValues.bodyParts} onChange={(e) => setActivityValues((prev) => ({ ...prev, bodyParts: e.target.value }))} /></label>
+        </div>
+        <input className="input mt-2 w-full" placeholder="Optional activity note" value={activityValues.note} onChange={(e) => setActivityValues((prev) => ({ ...prev, note: e.target.value }))} />
+        <button onClick={handleSaveActivity} disabled={savingActivity} className="mt-2 rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50">{savingActivity ? "Saving..." : activity ? "Update activity" : "Save activity"}</button>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -356,6 +446,15 @@ function MealSection({
         </button>
       </div>
     </div>
+  );
+}
+
+function ActivityInput({ label, value, onChange, step = "1" }: { label: string; value: string; onChange: (value: string) => void; step?: string }) {
+  return (
+    <label className="text-xs text-gray-500">
+      {label}
+      <input type="number" min="0" step={step} className="input mt-1 w-full" value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
   );
 }
 

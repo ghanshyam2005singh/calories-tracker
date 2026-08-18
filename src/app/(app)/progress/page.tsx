@@ -17,8 +17,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useAppData } from "@/context/AppDataContext";
 import { listFoodLogsForRange } from "@/lib/firestore/foodLogs";
 import { listWeightLogs } from "@/lib/firestore/weightLogs";
+import { listBodyMeasurementLogs } from "@/lib/firestore/bodyMeasurements";
+import { listActivityLogs } from "@/lib/firestore/activityLogs";
 import { addDays, sumNutrients, todayId } from "@/lib/nutrition";
-import type { FoodLog, WeightLog } from "@/types";
+import type { ActivityLog, BodyMeasurementLog, FoodLog, WeightLog } from "@/types";
 
 const RANGES = [
   { label: "2 weeks", days: 14 },
@@ -32,6 +34,8 @@ export default function ProgressPage() {
   const [rangeDays, setRangeDays] = useState(30);
   const [weights, setWeights] = useState<WeightLog[]>([]);
   const [logs, setLogs] = useState<FoodLog[]>([]);
+  const [measurements, setMeasurements] = useState<BodyMeasurementLog[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [rangeLoading, setRangeLoading] = useState(true);
   const loading = rangeLoading || profileLoading;
 
@@ -41,12 +45,16 @@ export default function ProgressPage() {
     const end = todayId();
     const start = addDays(end, -rangeDays);
     (async () => {
-      const [w, l] = await Promise.all([
+      const [w, l, m, a] = await Promise.all([
         listWeightLogs(user.uid, start, end),
         listFoodLogsForRange(user.uid, start, end),
+        listBodyMeasurementLogs(user.uid, start, end),
+        listActivityLogs(user.uid, start, end),
       ]);
       setWeights(w);
       setLogs(l);
+      setMeasurements(m);
+      setActivities(a);
       setRangeLoading(false);
     })();
   }, [user, rangeDays]);
@@ -59,6 +67,14 @@ export default function ProgressPage() {
       return { date: w.date.slice(5), weight: w.weightKg, avg: Math.round(avg * 10) / 10 };
     });
   }, [weights]);
+
+  const measurementSeries = useMemo(() => measurements
+    .filter((m) => m.waistCm != null || m.chestCm != null || m.hipsCm != null)
+    .map((m) => ({ date: m.date.slice(5), waist: m.waistCm, chest: m.chestCm, hips: m.hipsCm })), [measurements]);
+
+  const activitySeries = useMemo(() => activities
+    .filter((a) => a.steps != null || a.caloriesBurned != null)
+    .map((a) => ({ date: a.date.slice(5), steps: a.steps, burned: a.caloriesBurned })), [activities]);
 
   const weeklyRateKgPerWeek = useMemo(() => {
     if (weights.length < 2) return null;
@@ -147,6 +163,46 @@ export default function ProgressPage() {
                     dot={false}
                   />
                 </LineChart>
+              </ResponsiveContainer>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-sm font-semibold text-gray-700">Body measurements</h2>
+            {measurementSeries.length === 0 ? (
+              <p className="text-sm text-gray-400">No waist, chest, or hip measurements in this range.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={measurementSeries}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f1" />
+                  <XAxis dataKey="date" fontSize={11} />
+                  <YAxis fontSize={11} domain={["auto", "auto"]} unit=" cm" />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="waist" name="Waist" stroke="#7c3aed" connectNulls dot={{ r: 2 }} />
+                  <Line type="monotone" dataKey="chest" name="Chest" stroke="#059669" connectNulls dot={{ r: 2 }} />
+                  <Line type="monotone" dataKey="hips" name="Hips" stroke="#ea580c" connectNulls dot={{ r: 2 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-sm font-semibold text-gray-700">Steps &amp; calories burned</h2>
+            {activitySeries.length === 0 ? (
+              <p className="text-sm text-gray-400">No activity entries in this range.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={activitySeries}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f1f1" />
+                  <XAxis dataKey="date" fontSize={11} />
+                  <YAxis yAxisId="steps" fontSize={11} />
+                  <YAxis yAxisId="burned" orientation="right" fontSize={11} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar yAxisId="steps" dataKey="steps" name="Steps" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="burned" dataKey="burned" name="Calories burned" fill="#f97316" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </section>

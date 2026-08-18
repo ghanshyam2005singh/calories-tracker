@@ -40,6 +40,38 @@ export interface WeightLog {
   createdAt?: string;
 }
 
+// Take measurements under similar conditions (ideally weekly) to make the
+// trend useful. All measurements are stored in centimetres.
+export interface BodyMeasurementLog {
+  id: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
+  waistCm?: number;
+  chestCm?: number;
+  hipsCm?: number;
+  neckCm?: number;
+  leftBicepsCm?: number;
+  rightBicepsCm?: number;
+  leftThighCm?: number;
+  rightThighCm?: number;
+  note?: string;
+  createdAt?: string;
+}
+
+export interface ActivityLog {
+  id: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
+  steps?: number;
+  walkingMinutes?: number;
+  runningMinutes?: number;
+  runningSpeedKph?: number;
+  workoutName?: string;
+  workoutMinutes?: number;
+  bodyParts?: string[];
+  caloriesBurned?: number;
+  note?: string;
+  createdAt?: string;
+}
+
 export interface WaterLog {
   id: string; // YYYY-MM-DD
   date: string; // YYYY-MM-DD
