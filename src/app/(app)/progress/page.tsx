@@ -69,8 +69,8 @@ export default function ProgressPage() {
   }, [weights]);
 
   const measurementSeries = useMemo(() => measurements
-    .filter((m) => m.waistCm != null || m.chestCm != null || m.hipsCm != null)
-    .map((m) => ({ date: m.date.slice(5), waist: m.waistCm, chest: m.chestCm, hips: m.hipsCm })), [measurements]);
+    .filter((m) => m.waistCm != null || m.chestCm != null || m.faceCm != null)
+    .map((m) => ({ date: m.date.slice(5), waist: m.waistCm, chest: m.chestCm, face: m.faceCm })), [measurements]);
 
   const activitySeries = useMemo(() => activities
     .filter((a) => a.steps != null || a.caloriesBurned != null)
@@ -181,7 +181,7 @@ export default function ProgressPage() {
                   <Legend />
                   <Line type="monotone" dataKey="waist" name="Waist" stroke="#7c3aed" connectNulls dot={{ r: 2 }} />
                   <Line type="monotone" dataKey="chest" name="Chest" stroke="#059669" connectNulls dot={{ r: 2 }} />
-                  <Line type="monotone" dataKey="hips" name="Hips" stroke="#ea580c" connectNulls dot={{ r: 2 }} />
+                  <Line type="monotone" dataKey="face" name="Face" stroke="#dc2626" connectNulls dot={{ r: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
             )}

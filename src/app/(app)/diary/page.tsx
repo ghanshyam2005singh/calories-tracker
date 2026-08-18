@@ -26,7 +26,7 @@ const DEFAULT_MACRO_GOALS = { proteinG: 150, fatG: 65, carbG: 200 };
 const WATER_QUICK_ADD = [500, 750, 1000];
 const WATER_GOAL_ML = 3000;
 const MEASUREMENT_FIELDS: { key: keyof Omit<BodyMeasurementLog, "id" | "date" | "note" | "createdAt">; label: string }[] = [
-  { key: "waistCm", label: "Waist" }, { key: "chestCm", label: "Chest" }, { key: "hipsCm", label: "Hips" },
+  { key: "waistCm", label: "Waist" }, { key: "chestCm", label: "Chest" }, { key: "faceCm", label: "Face" },
   { key: "neckCm", label: "Neck" }, { key: "leftBicepsCm", label: "Left biceps" }, { key: "rightBicepsCm", label: "Right biceps" },
   { key: "leftThighCm", label: "Left thigh" }, { key: "rightThighCm", label: "Right thigh" },
 ];

@@ -47,7 +47,7 @@ export interface BodyMeasurementLog {
   date: string; // YYYY-MM-DD
   waistCm?: number;
   chestCm?: number;
-  hipsCm?: number;
+  faceCm?: number;
   neckCm?: number;
   leftBicepsCm?: number;
   rightBicepsCm?: number;
