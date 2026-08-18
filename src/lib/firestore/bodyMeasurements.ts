@@ -15,7 +15,10 @@ export async function upsertBodyMeasurementLog(
   uid: string,
   entry: Omit<BodyMeasurementLog, "id" | "createdAt">,
 ): Promise<void> {
-  await setDoc(doc(measurementsCol(uid), entry.date), { ...entry, createdAt: new Date().toISOString() }, { merge: true });
+  const data = Object.fromEntries(
+    Object.entries({ ...entry, createdAt: new Date().toISOString() }).filter(([, value]) => value !== undefined)
+  );
+  await setDoc(doc(measurementsCol(uid), entry.date), data, { merge: true });
 }
 
 export async function listBodyMeasurementLogs(uid: string, startDate: string, endDate: string): Promise<BodyMeasurementLog[]> {

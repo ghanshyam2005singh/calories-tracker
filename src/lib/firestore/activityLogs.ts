@@ -12,7 +12,10 @@ export async function getActivityLog(uid: string, date: string): Promise<Activit
 }
 
 export async function upsertActivityLog(uid: string, entry: Omit<ActivityLog, "id" | "createdAt">): Promise<void> {
-  await setDoc(doc(activityLogsCol(uid), entry.date), { ...entry, createdAt: new Date().toISOString() }, { merge: true });
+  const data = Object.fromEntries(
+    Object.entries({ ...entry, createdAt: new Date().toISOString() }).filter(([, value]) => value !== undefined)
+  );
+  await setDoc(doc(activityLogsCol(uid), entry.date), data, { merge: true });
 }
 
 export async function listActivityLogs(uid: string, startDate: string, endDate: string): Promise<ActivityLog[]> {

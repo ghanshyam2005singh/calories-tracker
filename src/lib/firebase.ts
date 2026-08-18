@@ -28,6 +28,10 @@ export const db =
   typeof window !== "undefined"
     ? initializeFirestore(app, {
         localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+        // Optional form fields are intentionally omitted by the tracker.
+        // Ignoring them here prevents a partially filled-in activity or
+        // measurement form from causing an entire save to fail.
+        ignoreUndefinedProperties: true,
       })
     : getFirestore(app);
 
